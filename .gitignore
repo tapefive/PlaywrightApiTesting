@@ -1,0 +1,30 @@
+# Node modules
+node_modules/
+
+# Log files
+*.log
+*.tmp
+
+# Playwright report and trace files
+report/
+traces/
+screenshots/
+
+# Environment variables
+.env
+
+# Build files
+dist/
+build/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# IDE-specific files
+.vscode/
+.idea/
+
+.playwright/
+bin/
+obj/

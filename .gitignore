@@ -4,6 +4,10 @@ node_modules/
 # Log files
 *.log
 *.tmp
+*.txt
+
+# Log Directory
+TestLogs
 
 # Playwright report and trace files
 report/

@@ -2,7 +2,7 @@ using DotNetEnv;
 
 // Ensure you have the correct using directive for your .env library.
 
-namespace PlaywrightApiTestingYouTube;
+namespace PlaywrightApiTesting;
 
 public static class EnvHelper
 {

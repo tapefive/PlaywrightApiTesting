@@ -3,18 +3,17 @@ using Microsoft.Playwright;
 using Xunit.Abstractions;
 using System.Text.Json;
 using FluentAssertions;
-using Newtonsoft.Json.Serialization;
 
 namespace PlaywrightApiTestingYouTube;
 
 // Defines a test class for API testing using Playwright
 // Constructor that accepts a test output helper for logging
-public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
+public class ApiTestsReqres(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 {
     // Fields to hold Playwright and API request context instances
     private IPlaywright? _playwright;
     private IAPIRequestContext? _requestContext;
-    
+
     // Asynchronous initialization method to set up Playwright and request context
     public async Task InitializeAsync()
     {
@@ -139,7 +138,7 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         // Verify that the HTTP status code is 204 (No Content)
         Assert.Equal(204, response.Status);
     }
-    
+
     // Test for performing a POST request to register and obtain a token
     [Fact]
     public async Task GoodRegisterTest()
@@ -156,7 +155,7 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
         // Verify that the HTTP status code is 200 (OK)
         Assert.Equal(200, response.Status);
-        
+
         // Read and decode the response body
         var body = await response.BodyAsync();
         var bodyString = Encoding.UTF8.GetString(body);
@@ -164,14 +163,14 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         // Verify that the response contains the updated data
         Assert.Contains("token", bodyString);
         Assert.Contains("QpwL5tke4Pnpja7X4", bodyString);
-        
+
         // Parse the response as JSON and log it
         var jsonBody = await response.JsonAsync();
         testOutputHelper.WriteLine(jsonBody.ToString());
     }
-    
+
     // Test for performing a POST request to attempt to register without a password
-        [Fact]
+    [Fact]
     public async Task BadRegisterTest()
     {
         // Perform an unsuccessful POST request to the specified URL
@@ -185,7 +184,7 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
         // Verify that the HTTP status code is 400 (Bad Request)
         Assert.Equal(400, response.Status);
-        
+
         // Read and decode the response body
         var body = await response.BodyAsync();
         var bodyString = Encoding.UTF8.GetString(body);
@@ -193,12 +192,12 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         // Verify that the response contains the updated data
         Assert.Contains("error", bodyString);
         Assert.Contains("Missing password", bodyString);
-        
+
         // Parse the response as JSON and log it
         var jsonBody = await response.JsonAsync();
         testOutputHelper.WriteLine(jsonBody.ToString());
     }
-    
+
     // Test for performing a POST request to log in and obtain a token
     [Fact]
     public async Task GoodLoginTest()
@@ -215,7 +214,7 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
         // Verify that the HTTP status code is 200 (OK)
         Assert.Equal(200, response.Status);
-        
+
         // Read and decode the response body
         var body = await response.BodyAsync();
         var bodyString = Encoding.UTF8.GetString(body);
@@ -223,12 +222,12 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         // Verify that the response contains the updated data
         Assert.Contains("token", bodyString);
         Assert.Contains("QpwL5tke4Pnpja7X4", bodyString);
-        
+
         // Parse the response as JSON and log it
         var jsonBody = await response.JsonAsync();
         testOutputHelper.WriteLine(jsonBody.ToString());
     }
-    
+
     // Test for performing a POST request to attempt to log in without a password
     [Fact]
     public async Task BadLoginTest()
@@ -244,7 +243,7 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
         // Verify that the HTTP status code is 400 (Bad Request)
         Assert.Equal(400, response.Status);
-        
+
         // Read and decode the response body
         var body = await response.BodyAsync();
         var bodyString = Encoding.UTF8.GetString(body);
@@ -252,12 +251,12 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         // Verify that the response contains the updated data
         Assert.Contains("error", bodyString);
         Assert.Contains("Missing password", bodyString);
-        
+
         // Parse the response as JSON and log it
         var jsonBody = await response.JsonAsync();
         testOutputHelper.WriteLine(jsonBody.ToString());
     }
-    
+
     // Test for performing a GET request to list all users
     [Fact]
     public async Task GetListAllUsersTest()
@@ -275,11 +274,11 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         // Parse JSON
         var jsonDocument = JsonDocument.Parse(bodyString);
         var rootElement = jsonDocument.RootElement;
-        
+
         // Parse the response as JSON and log it
         var jsonBody = await response.JsonAsync();
         testOutputHelper.WriteLine(jsonBody.ToString());
-        
+
         // Assert top-level properties
         Assert.True(rootElement.TryGetProperty("page", out _), "The 'page' property is missing.");
         Assert.True(rootElement.TryGetProperty("per_page", out _), "The 'per_page' property is missing.");
@@ -287,35 +286,39 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         Assert.True(rootElement.TryGetProperty("total_pages", out _), "The 'total_pages' property is missing.");
         Assert.True(rootElement.TryGetProperty("data", out _), "The 'data' property is missing.");
         Assert.True(rootElement.TryGetProperty("support", out _), "The 'support' property is missing.");
-        
+
         // Validate the "data" array properties
         foreach (var dataItem in rootElement.GetProperty("data").EnumerateArray())
         {
             Assert.True(dataItem.TryGetProperty("id", out _), "The 'id' property is missing in a data item.");
             Assert.True(dataItem.TryGetProperty("email", out _), "The 'email' property is missing in a data item.");
-            Assert.True(dataItem.TryGetProperty("first_name", out _), "The 'first_name' property is missing in a data item.");
-            Assert.True(dataItem.TryGetProperty("last_name", out _), "The 'last_name' property is missing in a data item.");
+            Assert.True(dataItem.TryGetProperty("first_name", out _),
+                "The 'first_name' property is missing in a data item.");
+            Assert.True(dataItem.TryGetProperty("last_name", out _),
+                "The 'last_name' property is missing in a data item.");
             Assert.True(dataItem.TryGetProperty("avatar", out _), "The 'avatar' property is missing in a data item.");
         }
-        
+
         // Validate the "support" object properties
         var supportElement = rootElement.GetProperty("support");
-        Assert.True(supportElement.TryGetProperty("url", out _), "The 'url' property is missing in the support object.");
-        Assert.True(supportElement.TryGetProperty("text", out _), "The 'text' property is missing in the support object.");
-        
+        Assert.True(supportElement.TryGetProperty("url", out _),
+            "The 'url' property is missing in the support object.");
+        Assert.True(supportElement.TryGetProperty("text", out _),
+            "The 'text' property is missing in the support object.");
+
     }
-    
-    // Test for performing a POST request to log in and obtain a token
+
+    // Test for performing a POST request to register and obtain a token
     [Fact]
     public async Task AuthenticateTest()
     {
         // Perform a successful POST request to the specified URL
-        var response = await _requestContext!.PostAsync("/api/login", new APIRequestContextOptions
+        var response = await _requestContext!.PostAsync("/api/register", new APIRequestContextOptions
         {
             DataObject = new
             {
                 email = "eve.holt@reqres.in",
-                password = "cityslicka"
+                password = "pistol"
             }
         });
 

@@ -1,29 +1,27 @@
 using System.Text.Json;
 using Microsoft.Playwright;
 using Xunit.Abstractions;
-using FluentAssertions;
 using static PlaywrightApiTestingYouTube.EnvHelper;
 using Bogus;
-
 
 namespace PlaywrightApiTestingYouTube;
 
 // Defines a test class for API testing using Playwright
-// Constructor that accepts a test output helper for logging
 public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
-
 {
-    // Fields to hold Playwright and API request context instances
+    // Fields to hold Playwright instance, request context, created user ID, and a Faker instance
     private IPlaywright? _playwright;
     private IAPIRequestContext? _requestContext;
     private int _createdUserId;
     private static readonly Faker Faker = new();
-    
+
+    // Class to represent a user response from the API
     private class UserResponse
     {
         public int id { get; set; }
     }
 
+    // Generates random user data using the Faker library
     private object GenerateRandomUser()
     {
         return new
@@ -32,128 +30,161 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
             gender = Faker.PickRandom("Male", "Female"),
             email = Faker.Internet.Email(),
             status = Faker.PickRandom("active", "inactive")
-
         };
     }
 
-    // Asynchronous initialization method to set up Playwright and request context
+    // Initializes Playwright and sets up API request context
     public async Task InitializeAsync()
     {
-        // Create a Playwright instance
+        // Create Playwright instance
         _playwright = await Playwright.CreateAsync();
 
-        // Create a new API request context
+        // Set up API request context with the base URL
         _requestContext = await _playwright.APIRequest.NewContextAsync(new APIRequestNewContextOptions()
         {
             BaseURL = "https://gorest.co.in"
         });
+
+        // Retrieve access token from environment variables
+        var accessToken = GetEnvVariable("ACCESS_TOKEN");
+
+        // Generate random user data for the request
+        var postData = GenerateRandomUser();
+
+        // Send a POST request to create a new user
+        var response = await _requestContext.PostAsync("/public/v2/users", new APIRequestContextOptions()
+        {
+            Headers = new Dictionary<string, string>()
+            {
+                { "Authorization", $"Bearer {accessToken}" }
+            },
+            DataObject = postData
+        });
+
+        // Assert that the response status is 201 (Created)
+        Assert.Equal(201, response.Status);
+
+        // Parse the response to retrieve the created user ID
+        var jsonBody = await response.JsonAsync();
+        var userResponse = jsonBody?.Deserialize<UserResponse>();
+        _createdUserId = userResponse?.id ?? throw new Exception("Failed to retrieve user ID");
+
+        // Log the created user ID
+        testOutputHelper.WriteLine($"Created User ID during initialization: {_createdUserId}");
     }
 
-    // Asynchronous cleanup method to dispose of resources
+    // Disposes of resources when the test class is done
     public async Task DisposeAsync()
     {
-        // Dispose of the request context if it was Initialized
         if (_requestContext != null)
         {
             await _requestContext.DisposeAsync();
         }
 
-        // Dispose of the Playwright instance
         _playwright?.Dispose();
     }
-    
-    // Test for performing a POST request to create a user
-    [Fact]
-    public async Task PostCreateUserTest()
-    {
-        
-        // Calls helper method to retrieve access token from environment variables
-        var accessToken = GetEnvVariable("ACCESS_TOKEN");
-        accessToken.Should().NotBeNull();
-        
-        // Data to send in the POST request
-        var postData = GenerateRandomUser();
-        
-        // Perform a POST request with the specified data
-        var response = await _requestContext!.PostAsync("/public/v2/users", new APIRequestContextOptions()
-        {
-            Headers = new Dictionary<string, string>()
-            {
-                {"Authorization", $"Bearer {accessToken}"}
-            },
-            DataObject = postData
-        });
-        
-        // Verify that the HTTP status code is 201 (Created)
-        Assert.Equal(201, response.Status);
-        
-        var jsonBody = await response.JsonAsync();
-        testOutputHelper.WriteLine(jsonBody?.ToString());
 
-        var userResponse = jsonBody?.Deserialize<UserResponse>();
-        if (userResponse != null) _createdUserId = userResponse.id;
-        testOutputHelper.WriteLine($"Created User ID: {_createdUserId}");
-
-
-    }
-    
-    // Test for performing a PUT request to update a created user
+    // Test to update the created user with new data
     [Fact]
     public async Task PutUpdateUserTest()
-    { 
-        // Calls helper method to retrieve access token from environment variables
+    {
+        // Retrieve access token from environment variables
         var accessToken = GetEnvVariable("ACCESS_TOKEN");
-        accessToken.Should().NotBeNull();
-        
-        // Data to send in the PUT request
+
+        // Generate new user data for the PUT request
         var putData = new
         {
             name = Faker.Name.FullName(),
             gender = Faker.PickRandom("Male", "Female"),
             email = Faker.Internet.Email(),
-            status = Faker.PickRandom("active")
+            status = "active"
         };
-        
-        // Perform a PUT request with the specified data and the user id
-        var response = await _requestContext!.PutAsync($"/public/v2/users/7610625", new APIRequestContextOptions()
+
+        // Send a PUT request to update the user
+        var response = await _requestContext!.PutAsync($"/public/v2/users/{_createdUserId}", new APIRequestContextOptions()
         {
             Headers = new Dictionary<string, string>()
             {
-                {"Authorization", $"Bearer {accessToken}"}
+                { "Authorization", $"Bearer {accessToken}" }
             },
             DataObject = putData
         });
-        
-        // Verify that the HTTP status code is 200 (OK)
+
+        // Assert that the response status is 200 (OK)
         Assert.Equal(200, response.Status);
-        
+
+        // Log the updated user response
         var jsonBody = await response.JsonAsync();
-        testOutputHelper.WriteLine(jsonBody.ToString());
+        testOutputHelper.WriteLine($"Updated User Response: {jsonBody}");
     }
-    
-    // Test for performing a GET request to retrieve user details
+
+    // Test to fetch the created user's details
     [Fact]
     public async Task GetUserTest()
-
     {
-        // Calls helper method to retrieve access token from environment variables
+        // Retrieve access token from environment variables
         var accessToken = GetEnvVariable("ACCESS_TOKEN");
-        accessToken.Should().NotBeNull();
-        
-        // Perform a GET request with the user id
-        var response = await _requestContext!.GetAsync($"/public/v2/users/7610625",
-            new APIRequestContextOptions()
-            {
-                Headers = new Dictionary<string, string>()
-                {
-                    { "Authorization", $"Bearer {accessToken}" }
-                },
-            });
 
-        // Verify that the HTTP status code is 200 (OK)
+        // Send a GET request to retrieve the user's details
+        var response = await _requestContext!.GetAsync($"/public/v2/users/{_createdUserId}", new APIRequestContextOptions()
+        {
+            Headers = new Dictionary<string, string>()
+            {
+                { "Authorization", $"Bearer {accessToken}" }
+            }
+        });
+
+        // Assert that the response status is 200 (OK)
         Assert.Equal(200, response.Status);
 
+        // Log the fetched user response
         var jsonBody = await response.JsonAsync();
-        testOutputHelper.WriteLine(jsonBody.ToString());
+        testOutputHelper.WriteLine($"Fetched User Response: {jsonBody}");
+    }
+    
+    // Test to delete the created user's details
+    [Fact]
+    public async Task DeleteUserTest()
+    {
+        // Retrieve access token from environment variables
+        var accessToken = GetEnvVariable("ACCESS_TOKEN");
+
+        // Send a DELETE request to delete the user's details
+        var response = await _requestContext!.DeleteAsync($"/public/v2/users/{_createdUserId}", new APIRequestContextOptions()
+        {
+            Headers = new Dictionary<string, string>()
+            {
+                { "Authorization", $"Bearer {accessToken}" }
+            }
+        });
+
+        // Assert that the response status is 204 (Successful)
+        Assert.Equal(204, response.Status);
+        
+    }
+    
+    // Test to fetch the deleted user's details
+    [Fact]
+    public async Task GetDeletedUserTest()
+    {
+        // Retrieve access token from environment variables
+        var accessToken = GetEnvVariable("ACCESS_TOKEN");
+
+        // Send a GET request to retrieve the user's details
+        var response = await _requestContext!.GetAsync($"/public/v2/users/7614801", new APIRequestContextOptions()
+        {
+            Headers = new Dictionary<string, string>()
+            {
+                { "Authorization", $"Bearer {accessToken}" }
+            }
+        });
+
+        // Assert that the response status is 404 (Not found)
+        Assert.Equal(404, response.Status);
+        
+        // Log the fetched user response
+        var jsonBody = await response.JsonAsync();
+        testOutputHelper.WriteLine($"Fetched User Response: {jsonBody}");
+        
     }
 }

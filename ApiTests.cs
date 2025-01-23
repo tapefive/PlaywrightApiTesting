@@ -2,6 +2,8 @@ using System.Text;
 using Microsoft.Playwright;
 using Xunit.Abstractions;
 using System.Text.Json;
+using FluentAssertions;
+using Newtonsoft.Json.Serialization;
 
 namespace PlaywrightApiTestingYouTube;
 
@@ -301,5 +303,34 @@ public class ApiTests(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         Assert.True(supportElement.TryGetProperty("url", out _), "The 'url' property is missing in the support object.");
         Assert.True(supportElement.TryGetProperty("text", out _), "The 'text' property is missing in the support object.");
         
+    }
+    
+    // Test for performing a POST request to log in and obtain a token
+    [Fact]
+    public async Task AuthenticateTest()
+    {
+        // Perform a successful POST request to the specified URL
+        var response = await _requestContext!.PostAsync("/api/login", new APIRequestContextOptions
+        {
+            DataObject = new
+            {
+                email = "eve.holt@reqres.in",
+                password = "cityslicka"
+            }
+        });
+
+        var jsonBody = await response.JsonAsync();
+        testOutputHelper.WriteLine(jsonBody.ToString());
+
+        var authResponse = jsonBody?.Deserialize<Authenticate>();
+
+        // var token = jsonBody?.GetProperty("token").ToString();
+        authResponse?.token.Should().NotBe(string.Empty);
+        authResponse?.token.Should().NotBeNull();
+    }
+
+    private class Authenticate
+    {
+        public string token { get; set; }
     }
 }

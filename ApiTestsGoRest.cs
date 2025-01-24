@@ -8,14 +8,15 @@ using Serilog;
 
 namespace PlaywrightApiTesting;
 
-// Defines a test class for API testing using Playwright
-public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
+// Defines a test class for API testing using Playwright. Initialize Test Report class
+public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : ExtentTestReport(testOutputHelper), IAsyncLifetime
 {
     // Fields to hold Playwright instance, request context, created user ID, and a Faker instance
     private IPlaywright? _playwright;
     private IAPIRequestContext? _requestContext;
     private int _createdUserId;
     private static readonly Faker Faker = new();
+    private readonly ITestOutputHelper _testOutputHelper = testOutputHelper;
 
     // Class to represent a user response from the API
     private class UserResponse
@@ -57,12 +58,13 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
             Directory.CreateDirectory(logDirectory);
 
             Log.Logger = new LoggerConfiguration()
-                .MinimumLevel.Debug()
-                .WriteTo.TestOutput(testOutputHelper)
+                .MinimumLevel.Error()
+                .WriteTo.TestOutput(_testOutputHelper)
                 .WriteTo.File(Path.Combine(logDirectory, "log-.txt"), rollingInterval: RollingInterval.Day)
                 .CreateLogger();
-
-            Log.Information("Logger initialized. Test execution starting.");
+            
+            // Log start of test in test report
+            Test.Info("Starting POST request to create a new user");
 
             // Retrieve access token from environment variables
             var accessToken = GetEnvVariable("ACCESS_TOKEN");
@@ -82,19 +84,22 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
             // Assert that the response status is 201 (Created)
             Assert.Equal(201, response.Status);
+            // Log test successful in test report
+            Test.Pass("Test passed");
 
             // Parse the response to retrieve the created user ID
             var jsonBody = await response.JsonAsync();
             var userResponse = jsonBody?.Deserialize<UserResponse>();
+            Test.Info("Deserializing response body");
+            Test.Info($"Body: {jsonBody}");
             _createdUserId = userResponse?.id ?? throw new Exception("Failed to retrieve user ID");
-
-            // Log the created user ID
-            Log.Information($"Created User ID during initialization: {_createdUserId}");
         }
         catch (Exception ex)
         {
-            //Throw an exception if initialize fails and log it
+            // Throw an exception if initialize fails and log it
             Log.Error(ex.ToString(), "Initialize failed");
+            // Log test failed in test report
+            Test.Fail("Test failed");
             throw;
         }
     }
@@ -106,8 +111,8 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         {
             await _requestContext.DisposeAsync();
         }
-
         _playwright?.Dispose();
+        FlushReports();
         await Log.CloseAndFlushAsync();
     }
 
@@ -117,6 +122,8 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
     {
         try
         {
+            // Log start of test in test report
+            Test.Info("Starting PUT request to update user");
             // Retrieve access token from environment variables
             var accessToken = GetEnvVariable("ACCESS_TOKEN");
 
@@ -143,15 +150,20 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
             // Assert that the response status is 200 (OK)
             Assert.Equal(200, response.Status);
+            // Log test successful in test report
+            Test.Pass("Test passed");
 
             // Log the updated user response
             var jsonBody = await response.JsonAsync();
-            Log.Information($"Updated User Response: {jsonBody}");
+            Test.Info("Deserializing response body");
+            Test.Info($"Body: {jsonBody}");
         }
         catch (Exception ex)
         {
             //Throw an exception if test fails and log it
             Log.Error(ex.ToString(), "Test failed");
+            // Log test failed in test report
+            Test.Fail("Test failed");
             throw;
         }
     }
@@ -162,6 +174,8 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
     {
         try
         {
+            // Log start of test in test report
+            Test.Info("Starting GET request to fetch user");
             // Retrieve access token from environment variables
             var accessToken = GetEnvVariable("ACCESS_TOKEN");
 
@@ -178,15 +192,20 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
             // Assert that the response status is 200 (OK)
             Assert.Equal(200, response.Status);
+            // Log test successful in test report
+            Test.Pass("Test passed");
 
             // Log the fetched user response
             var jsonBody = await response.JsonAsync();
-            Log.Information($"Fetched User Response: {jsonBody}");
+            Test.Info("Deserializing response body");
+            Test.Info($"Body: {jsonBody}");
         }
         catch (Exception ex)
         {
             //Throw an exception if test fails and log it
             Log.Error(ex.ToString(), "Test failed");
+            // Log test failed in test report
+            Test.Fail("Test failed");
             throw;
         }
     }
@@ -197,6 +216,8 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
     {
         try
         {
+            // Log start of test in test report
+            Test.Info("Starting DELETE request to delete user");
             // Retrieve access token from environment variables
             var accessToken = GetEnvVariable("ACCESS_TOKEN");
 
@@ -213,12 +234,15 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
             // Assert that the response status is 204 (Successful)
             Assert.Equal(204, response.Status);
-
+            // Log test successful in test report
+            Test.Pass("Test passed");
         }
         catch (Exception ex)
         {
             //Throw an exception if test fails and log it
             Log.Error(ex.ToString(), "Test failed");
+            // Log test failed in test report
+            Test.Fail("Test failed");
             throw;
         }
     }
@@ -229,7 +253,8 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
     {
         try
         {
-
+            // Log start of test in test report
+            Test.Info("Starting GET request to fetch deleted user");
             // Retrieve access token from environment variables
             var accessToken = GetEnvVariable("ACCESS_TOKEN");
 
@@ -245,11 +270,15 @@ public class ApiTestsGoRest(ITestOutputHelper testOutputHelper) : IAsyncLifetime
 
             // Assert that the response status is 404 (Not found)
             Assert.Equal(404, response.Status);
+            // Log test successful in test report
+            Test.Pass("Test passed");
         }
         catch (Exception ex)
         {
             //Throw an exception if test fails and log it
             Log.Error(ex.ToString(), "Test failed");
+            // Log test failed in test report
+            Test.Fail("Test failed");
             throw;
         }
     }

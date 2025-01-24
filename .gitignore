@@ -6,8 +6,14 @@ node_modules/
 *.tmp
 *.txt
 
+# Report files
+*.html
+
 # Log Directory
 TestLogs
+
+# Reports Directory
+TestReports
 
 # Playwright report and trace files
 report/

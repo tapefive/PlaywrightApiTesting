@@ -1,12 +1,12 @@
 using System.Diagnostics;
 using System.Text;
-using Microsoft.Playwright;
 using Xunit.Abstractions;
 using System.Text.Json;
 using FluentAssertions;
 using Serilog;
 using AventStack.ExtentReports;
 using AventStack.ExtentReports.Reporter;
+using Microsoft.Playwright;
 
 namespace PlaywrightApiTesting;
 
@@ -17,6 +17,8 @@ public class ApiTestsReqres(ITestOutputHelper testOutputHelper) : IAsyncLifetime
     // Fields to hold Playwright and API request context instances
     private IPlaywright? _playwright;
     private IAPIRequestContext? _requestContext;
+    private IPage? _page;
+    private IBrowser? _browser;
     
     // Static instance of ExtentReports to be shared across tests
     private static readonly AventStack.ExtentReports.ExtentReports ExtentInstance;
@@ -69,6 +71,10 @@ public class ApiTestsReqres(ITestOutputHelper testOutputHelper) : IAsyncLifetime
         {
             // Create a Playwright instance
             _playwright = await Playwright.CreateAsync();
+            
+            // Initialize the browser and page for UI testing
+            _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = false });
+            _page = await _browser.NewPageAsync();
 
             // Create a new API request context
             _requestContext = await _playwright.APIRequest.NewContextAsync(new APIRequestNewContextOptions()
@@ -551,6 +557,51 @@ public class ApiTestsReqres(ITestOutputHelper testOutputHelper) : IAsyncLifetime
     
     private class Authenticate
     {
-        public string token { get; set; }
+        public string token { get; set; } = null!;
+    }
+
+    [Fact]
+
+    public async Task CombinedFrontEndApiTest()
+    {
+        try
+        { 
+            _test.Info("Starting test to navigate to home page");
+            // Navigate to home page URL
+            await _page!.GotoAsync("https://reqres.in");
+            // Verify home page logo is present
+            _page.Locator("https://reqres.in/img/logo.png");
+            // Assert that the header text matches the expected value
+            // Log start of test in test report
+            _test.Info("Starting GET request to fetch user");
+            // Perform a GET request to the specified URL
+            Debug.Assert(_requestContext != null, nameof(_requestContext) + " != null");
+            var response = await _requestContext.GetAsync("/api/users/2");
+
+            // Verify that the HTTP status code is 200 (OK)
+            Assert.Equal(200, response.Status);
+            // Log test successful in test report
+            _test.Pass("Test passed");
+
+            // Read and decode the response body
+            var body = await response.BodyAsync();
+            var bodyString = Encoding.UTF8.GetString(body);
+
+            // Verify that the response contains the expected data
+            Assert.Contains("Janet", bodyString);
+
+            // Parse the response as JSON and log it in the report
+            var jsonBody = await response.JsonAsync();
+            _test.Info("Deserializing response body");
+            _test.Info($"Body: {jsonBody}");
+        }
+        catch (Exception ex)
+        {
+            // Throw an exception if test fails and log it
+            Log.Error(ex.ToString(), "Test failed");
+            // Log test failed in test report
+            _test.Fail("Test failed");
+            throw;
+        }
     }
 }
